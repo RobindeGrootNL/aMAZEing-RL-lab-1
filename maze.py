@@ -34,10 +34,10 @@ class Maze:
     }
 
     # Reward values
-    STEP_REWARD = -1
-    GOAL_REWARD = 0
-    IMPOSSIBLE_REWARD = -100
-    EATEN_REWARD = -100
+    STEP_REWARD = 0
+    GOAL_REWARD = 1
+    #IMPOSSIBLE_REWARD = -100
+    #EATEN_REWARD = -100
 
 
     def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False):
@@ -63,11 +63,11 @@ class Maze:
         return actions;
 
     def __actions_minotaur(self, stay):
-    	""" if stay=True, the minotaur is allowed to perform the action "STAY"
-    	"""
+        """ if stay=True, the minotaur is allowed to perform the action "STAY"
+        """
         actions_minotaur = dict();
         if stay:
-        	actions_minotaur[self.STAY]   = (0, 0);
+            actions_minotaur[self.STAY]   = (0, 0);
         actions_minotaur[self.MOVE_LEFT]  = (0,-1);
         actions_minotaur[self.MOVE_RIGHT] = (0, 1);
         actions_minotaur[self.MOVE_UP]    = (-1,0);
@@ -107,30 +107,27 @@ class Maze:
             return self.map[(row, col)];
 
     def __move_minotaur(self, state):
-    	actions = self.actions_minotaur
-    	possible_actions = list()
+        actions = self.actions_minotaur
+        possible_actions = list()
 
-    	row = state[0]
-    	col = state[1]
+        row = state[0]
+        col = state[1]
 
-    	for _, action in actions.items():
-    		# Compute the future position given current (state, action)
-    		row = state[0] + action[0];
-    		col = state[1] + action[1];
-    		#print(row, col)
-    		if ((row == -1) or (row == self.maze.shape[0]) or (col == -1) or (col == self.maze.shape[1])): #TODO: add self.maze.shape
-    		    #print("hitting maze border") #we do not consider this action
-    		elif (self.maze[row,col] == 1):
-    		    #print("hitting maze walls")
-    		    if action[0]!=0: row += action[0]; #print("new:", row, col); #vertical jump
-    		    elif action[1]!=0: col += action[1]; #print("new:",row, col); #horizontal jump
-    		    if (maze[row,col] != 1): possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
-    		else:
-    		    possible_actions.append((row,col))
+        for _, action in actions.items():
+            # Compute the future position given current (state, action)
+            row = state[0] + action[0];
+            col = state[1] + action[1];
+            if ((row != -1) or (row != self.maze.shape[0]) or (col != -1) or (col != self.maze.shape[1])):
+                if (self.maze[row,col] == 1):
+                    if action[0]!=0: row += action[0]; #vertical jump
+                    elif action[1]!=0: col += action[1]; #horizontal jump
+                    if (maze[row,col] != 1): possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
+                else:
+                    possible_actions.append((row,col))
 
-	    n = len(possible_actions)
-	    chosen_action = possible_actions[random.randint(0, n)]
-	    return self.map[chosen_action] # DO WE NEED TO PUT self.map[] ??
+        n = len(possible_actions)
+        chosen_action = possible_actions[random.randint(0, n)]
+        return self.map[chosen_action] 
 
 
     def __transitions(self):
@@ -160,10 +157,10 @@ class Maze:
                 for a in range(self.n_actions):
                     next_s = self.__move(s,a);
                     # Rewrd for hitting a wall
-                    if s == next_s and a != self.STAY:
-                        rewards[s,a] = self.IMPOSSIBLE_REWARD;
+                    #if s == next_s and a != self.STAY:
+                    #    rewards[s,a] = self.IMPOSSIBLE_REWARD;
                     # Reward for reaching the exit
-                    elif s == next_s and self.maze[self.states[next_s]] == 2:
+                    if s == next_s and self.maze[self.states[next_s]] == 2:
                         rewards[s,a] = self.GOAL_REWARD;
                     # Reward for taking a step to an empty cell that is not the exit
                     else:
@@ -180,7 +177,7 @@ class Maze:
 
         return rewards;
 
-    def simulate(self, start, start_minotaur=(6, 5), policy, method):
+    def simulate(self, start, policy, method, start_minotaur=(6, 5)):
         if method not in methods:
             error = 'ERROR: the argument method must be in {}'.format(methods);
             raise NameError(error);
@@ -238,27 +235,6 @@ class Maze:
         print(self.map)
         print('The rewards:')
         print(self.rewards)
-
-    def __move_minotaur(self, state, action):
-        """ Makes a step in the maze, given a current position and an action.
-            If the action STAY or an inadmissible action is used, the agent stays in place.
-
-            :return tuple next_cell: Position (x,y) on the maze that agent transitions to.
-        """
-        # Compute the future position given current (state, action)
-        row = self.states[state][0] + self.actions[action][0];
-        col = self.states[state][1] + self.actions[action][1];
-        # Is the future position an impossible one ?
-        hitting_maze_walls =  (row == -1) or (row == self.maze.shape[0]) or \
-                              (col == -1) or (col == self.maze.shape[1]) or \
-                              (self.maze[row,col] == 1);
-        # Based on the impossiblity check return the next state.
-        if hitting_maze_walls:
-            return state;
-        else:
-            return self.map[(row, col)];
-
-
 
 def dynamic_programming(env, horizon):
     """ Solves the shortest path problem using dynamic programming
