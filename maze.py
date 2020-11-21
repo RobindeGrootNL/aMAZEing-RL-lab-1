@@ -62,11 +62,11 @@ class Maze:
         actions[self.MOVE_DOWN]  = (1, 0);
         return actions;
 
-    def __actions_minotaur(self, stay):
+    def __actions_minotaur(self, stay=False):
         """ if stay=True, the minotaur is allowed to perform the action "STAY"
         """
         actions_minotaur = dict();
-        if stay:
+        if stay == True:
             actions_minotaur[self.STAY]   = (0, 0);
         actions_minotaur[self.MOVE_LEFT]  = (0,-1);
         actions_minotaur[self.MOVE_RIGHT] = (0, 1);
@@ -110,30 +110,37 @@ class Maze:
         else:
             return self.map[(row, col)];
 
-    def __move_minotaur(self, state):
+    def __possible_moves_minotaur(self, state):
         actions = self.actions_minotaur
         possible_actions = list()
-
         #print('state minotaur: ', self.states_minotaur)
-
-        row = self.states_minotaur[state][0]
-        col = self.states_minotaur[state][1]
-
         for _, action in actions.items():
+            row = self.states_minotaur[state][0]
+            col = self.states_minotaur[state][1]
             # Compute the future position given current (state, action)
             row += action[0];
             col += action[1];
-            if ((row != -1) or (row != self.maze.shape[0]) or (col != -1) or (col != self.maze.shape[1])):
+            if ((row != -1) and (row != self.maze.shape[0]) and (col != -1) and (col != self.maze.shape[1])):
                 if (self.maze[row,col] == 1):
-                    if action[0]!=0: row += action[0]; #vertical jump
-                    elif action[1]!=0: col += action[1]; #horizontal jump
-                    if (self.maze[row,col] != 1): possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
+                    if action[0]!=0: 
+                        row += action[0]; #vertical jump
+                    elif action[1]!=0: 
+                        col += action[1]; #horizontal jump
+                    if (self.maze[row,col] != 1): 
+                        possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
                 else:
-                    possible_actions.append((row,col))
+                    possible_actions.append((row,col)) # TO DO: RENAME TO NEXT POSITIONS
 
         #n = len(possible_actions)
         #chosen_action = possible_actions[random.randint(0, n)]
         return possible_actions #self.map_minotaur[chosen_action]
+
+    def __move_minotaur(self,state):
+        possible_moves = self.__possible_moves_minotaur(state)
+        n = len(possible_moves)
+        random_number = random.randint(0,n-1)
+        chosen_action = possible_moves[random_number]
+        return self.map_minotaur[chosen_action]
 
     def __transitions(self):
         """ Computes the transition probabilities for every state action pair.
@@ -149,7 +156,7 @@ class Maze:
         # Compute the transition probabilities.
         for s in range(self.n_states):
             for s_minotaur in range(self.n_states):
-                next_states_minotaur = self.__move_minotaur(s_minotaur) #CALL FUNCTION RETURNING future positions of min
+                next_states_minotaur = self.__possible_moves_minotaur(s_minotaur) #CALL FUNCTION RETURNING future positions of min
                 for a in range(self.n_actions):
                     next_s = self.__move(s,a);
                     # check current states of player and minotaur. If current state is the same --> cannot move = action0
@@ -201,7 +208,7 @@ class Maze:
         path = list();
         if method == 'DynProg':
             # Deduce the horizon from the policy shape
-            horizon = policy.shape[1];
+            horizon = policy.shape[2]#-1;
             # Initialize current state and time
             t = 0;
             s = self.map[start];
@@ -209,14 +216,17 @@ class Maze:
             # Add the starting position in the maze to the path
             path.append(start);
             while t < horizon-1:
+                print("t: ", t)
                 # Move to next state given the policy and the current state
-                next_s = self.__move(s,policy[s,t]);
+                next_s = self.__move(s,policy[s,s_minotaur,t]);
+                next_s_minotaur = self.__move_minotaur(s_minotaur)
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t +=1;
                 s = next_s;
+                s_minotaur = next_s_minotaur
         if method == 'ValIter':
             # Initialize current state, next state and time
             t = 1;
@@ -289,23 +299,25 @@ def dynamic_programming(env, horizon):
 
     # The dynamic programming bakwards recursion
     for t in range(T-1,-1,-1):
+        print(t)
         # Update the value function acccording to the bellman equation
         for s in range(n_states):
             for a in range(n_actions):
                 # add for loop for minotaur and add s_minotaur to all function parts
                 for s_minotaur in range(n_states):
-                    print("r shape: ", r[s,s_minotaur,a].shape, "p shape: ", p[:,s,:,s_minotaur,a].shape, "V shape: ", V[:,:,t+1].shape)
-                    print("Q shape: ", Q[s,s_minotaur,a].shape)
-                    print("np dot: ", np.dot(p[:,s,:,s_minotaur,a],V[:,:,t+1]).shape)
-                    Q[s,s_minotaur,a] = r[s,s_minotaur,a] + np.dot(p[:,s,:,s_minotaur,a],V[:,:,t+1])
+                    #print("r shape: ", r[s,s_minotaur,a].shape, "p shape: ", p[:,s,:,s_minotaur,a].shape, "V shape: ", V[:,:,t+1].shape)
+                    #print("Q shape: ", Q[s,s_minotaur,a].shape)
+                    #print("np dot: ", np.dot(p[:,s,:,s_minotaur,a],V[:,:,t+1]).shape)
+                    #print("probabilities: ", p.shape)
+                    Q[s,s_minotaur,a] = r[s,s_minotaur,a] + np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T)
 
                 # Update of the temporary Q values
                 #Q[s,a] = r[s,a] + np.dot(p[:,s,:,:,a],V[:,t+1])
         # Update by taking the maximum Q value w.r.t the action a
 
-        V[:,:,t] = np.max(Q,1);
+        V[:,:,t] = np.max(Q,2);
         # The optimal action is the one that maximizes the Q function
-        policy[:,:,t] = np.argmax(Q,1);
+        policy[:,:,t] = np.argmax(Q,2);
     return V, policy;
 
 def value_iteration(env, gamma, epsilon):
