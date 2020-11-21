@@ -165,6 +165,11 @@ class Maze:
                             transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 1
                         elif s == s_minotaur and a != 0:
                             transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
+                        # TODO: CHANGE THIS INTO NOT HARDCODED
+                        elif s == 37 and a == 0:
+                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
+                        elif s == 37 and a != 0:
+                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
                         else:
                             transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 1/len(next_states_minotaur)
         return transition_probabilities;
@@ -172,7 +177,6 @@ class Maze:
     def __rewards(self, weights=None, random_rewards=None):
 
         rewards = np.zeros((self.n_states, self.n_states, self.n_actions));
-
         # If the rewards are not described by a weight matrix
         if weights is None:
             for s in range(self.n_states):
@@ -305,12 +309,15 @@ def dynamic_programming(env, horizon):
             for a in range(n_actions):
                 # add for loop for minotaur and add s_minotaur to all function parts
                 for s_minotaur in range(n_states):
-                    #print("r shape: ", r[s,s_minotaur,a].shape, "p shape: ", p[:,s,:,s_minotaur,a].shape, "V shape: ", V[:,:,t+1].shape)
-                    #print("Q shape: ", Q[s,s_minotaur,a].shape)
-                    #print("np dot: ", np.dot(p[:,s,:,s_minotaur,a],V[:,:,t+1]).shape)
-                    #print("probabilities: ", p.shape)
                     Q[s,s_minotaur,a] = r[s,s_minotaur,a] + np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T)
-
+                    if s == 37:
+                        Q[s,s_minotaur,a] = r[s,s_minotaur,a]
+                    if r[s,s_minotaur,a] != 0 and np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T) != 0:
+                        print("non-zero reward: ", r[s,s_minotaur,a])
+                        print("np dot if non-zero reward: ", np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T), "s: ", s)
+                    #print("np.dot thingy: ", np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T))
+                    #print("Q in this state: ", Q[s,s_minotaur,a])
+        print("Q with correct starting positions: ", Q[0, 37, :])
                 # Update of the temporary Q values
                 #Q[s,a] = r[s,a] + np.dot(p[:,s,:,:,a],V[:,t+1])
         # Update by taking the maximum Q value w.r.t the action a
