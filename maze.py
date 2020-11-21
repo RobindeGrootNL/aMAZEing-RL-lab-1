@@ -187,7 +187,7 @@ class Maze:
                         #if s == next_s and a != self.STAY:
                         #    rewards[s,a] = self.IMPOSSIBLE_REWARD;
                         # Reward for reaching the exit
-                        if s == next_s and self.maze[self.states[next_s]] == 2:
+                        if s != next_s and self.maze[self.states[next_s]] == 2:
                             rewards[s,s_minotaur,a] = self.GOAL_REWARD;
                         # Reward for taking a step to an empty cell that is not the exit
                         else:
@@ -310,8 +310,6 @@ def dynamic_programming(env, horizon):
                 # add for loop for minotaur and add s_minotaur to all function parts
                 for s_minotaur in range(n_states):
                     Q[s,s_minotaur,a] = r[s,s_minotaur,a] + np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T)
-                    if s == 37:
-                        Q[s,s_minotaur,a] = r[s,s_minotaur,a]
                     if r[s,s_minotaur,a] != 0 and np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T) != 0:
                         print("non-zero reward: ", r[s,s_minotaur,a])
                         print("np dot if non-zero reward: ", np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T), "s: ", s)
