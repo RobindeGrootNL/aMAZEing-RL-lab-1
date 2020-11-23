@@ -196,6 +196,7 @@ class Maze:
             raise NameError(error);
 
         path = list();
+        path_minotaur = list()
         exited_maze = False
         if method == 'DynProg':
             # Deduce the horizon from the policy shape
@@ -206,14 +207,15 @@ class Maze:
             s_minotaur = self.map[start_minotaur]
             # Add the starting position in the maze to the path
             path.append(start);
+            path_minotaur.append(start_minotaur)
             while t < horizon-1:
-                print("t: ", t)
                 # Move to next state given the policy and the current state
                 next_s = self.__move(s,s_minotaur,policy[s,s_minotaur,t]);
                 next_s_minotaur = self.__move_minotaur(s_minotaur)
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
+                path_minotaur.append(self.states[next_s_minotaur])
                 # Update time and state for next iteration
                 t +=1;
                 s = next_s;
@@ -227,13 +229,14 @@ class Maze:
             s_minotaur = self.map[start_minotaur]
             # Add the starting position in the maze to the path
             path.append(start);
+            path_minotaur.append(start_minotaur)
             # Move to next state given the policy and the current state
-            #TODO: Add s_minotaur
             next_s = self.__move(s,s_minotaur,policy[s,s_minotaur]);
             next_s_minotaur = self.__move_minotaur(s_minotaur)
             # Add the position in the maze corresponding to the next state
             # to the path
             path.append(self.states[next_s]);
+            path_minotaur.append(self.states[next_s_minotaur])
             # Loop while state is not the goal state
             while not exited_maze and t < T:
                 # Update state
@@ -245,12 +248,13 @@ class Maze:
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
+                path_minotaur.append(self.states[next_s_minotaur])
                 # Update time and state for next iteration
                 t +=1;
 
                 if self.maze[self.states[next_s]] == 2:
                     exited_maze = True
-        return path, exited_maze, t
+        return path, path_minotaur, exited_maze, t
 
 
     def show(self):
@@ -405,7 +409,7 @@ def draw_maze(maze):
         cell.set_height(1.0/rows);
         cell.set_width(1.0/cols);
 
-def animate_solution(maze, path):
+def animate_solution(maze, path, path_minotaur, end_state=(6,5)):
 
     # Map a color to each cell in the maze
     col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
@@ -446,13 +450,26 @@ def animate_solution(maze, path):
     for i in range(len(path)):
         grid.get_celld()[(path[i])].set_facecolor(LIGHT_ORANGE)
         grid.get_celld()[(path[i])].get_text().set_text('Player')
+        grid.get_celld()[(path_minotaur[i])].set_facecolor(LIGHT_PURPLE)
+        grid.get_celld()[(path_minotaur[i])].get_text().set_text('Minotaur')
         if i > 0:
-            if path[i] == path[i-1]:
+            if path[i] != path[i-1]:
+                if path_minotaur[i] != path[i-1]:
+                    grid.get_celld()[(path[i-1])].set_facecolor(col_map[maze[path[i-1]]])
+                    grid.get_celld()[(path[i-1])].get_text().set_text('')
+                if path[i] != path_minotaur[i-1]:
+                    grid.get_celld()[(path_minotaur[i-1])].set_facecolor(col_map[maze[path_minotaur[i-1]]])
+                    grid.get_celld()[(path_minotaur[i-1])].get_text().set_text('')
+            if path[i] == path_minotaur[i]:
+                grid.get_celld()[(path[i])].set_facecolor(LIGHT_RED)
+                grid.get_celld()[(path[i])].get_text().set_text('Player dead')
+            if path[i] == end_state:
                 grid.get_celld()[(path[i])].set_facecolor(LIGHT_GREEN)
-                grid.get_celld()[(path[i])].get_text().set_text('Player is out')
-            else:
-                grid.get_celld()[(path[i-1])].set_facecolor(col_map[maze[path[i-1]]])
-                grid.get_celld()[(path[i-1])].get_text().set_text('')
+                grid.get_celld()[(path[i])].get_text().set_text('Player escaped')
+            if path[i] == path[i-1]:
+                grid.get_celld()[(path_minotaur[i-1])].set_facecolor(col_map[maze[path_minotaur[i-1]]])
+                grid.get_celld()[(path_minotaur[i-1])].get_text().set_text('')
+
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
