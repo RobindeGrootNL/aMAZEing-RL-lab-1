@@ -40,11 +40,12 @@ class Maze:
     #EATEN_REWARD = -100
 
 
-    def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False):
+    def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False, cross_minotaur=True):
         """ Constructor of the environment Maze.
         """
         self.maze                     = maze;
         self.actions                  = self.__actions();
+        self.cross_minotaur           = cross_minotaur
         self.actions_minotaur         = self.__actions_minotaur(stay=minotaur_stay);
         self.states, self.map, self.states_minotaur, self.map_minotaur = self.__states();
         self.n_actions                = len(self.actions);
@@ -91,7 +92,7 @@ class Maze:
                     s += 1;
         return states, map, states_minotaur, map_minotaur
 
-    def __move(self, state, action):
+    def __move(self, state, state_minotaur, action):
         """ Makes a step in the maze, given a current position and an action.
             If the action STAY or an inadmissible action is used, the agent stays in place.
 
@@ -105,7 +106,7 @@ class Maze:
                               (col == -1) or (col == self.maze.shape[1]) or \
                               (self.maze[row,col] == 1);
         # Based on the impossiblity check return the next state.
-        if hitting_maze_walls:
+        if hitting_maze_walls or (self.map[(row,col)] == state_minotaur and not self.cross_minotaur):
             return state;
         else:
             return self.map[(row, col)];
@@ -113,7 +114,6 @@ class Maze:
     def __possible_moves_minotaur(self, state):
         actions = self.actions_minotaur
         possible_actions = list()
-        #print('state minotaur: ', self.states_minotaur)
         for _, action in actions.items():
             row = self.states_minotaur[state][0]
             col = self.states_minotaur[state][1]
@@ -122,14 +122,15 @@ class Maze:
             col += action[1];
             if ((row != -1) and (row != self.maze.shape[0]) and (col != -1) and (col != self.maze.shape[1])):
                 if (self.maze[row,col] == 1):
-                    if action[0]!=0: 
-                        row += action[0]; #vertical jump
-                    elif action[1]!=0: 
-                        col += action[1]; #horizontal jump
-                    if (self.maze[row,col] != 1): 
-                        possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
+                    pass
+                    #if action[0]!=0: 
+                    #    row += action[0]; #vertical jump
+                    #elif action[1]!=0: 
+                    #    col += action[1]; #horizontal jump
+                    #if (self.maze[row,col] != 1): 
+                    #    possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
                 else:
-                    possible_actions.append((row,col)) # TO DO: RENAME TO NEXT POSITIONS
+                    possible_actions.append((row, col)) # TO DO: RENAME TO NEXT POSITIONS
 
         #n = len(possible_actions)
         #chosen_action = possible_actions[random.randint(0, n)]
@@ -147,8 +148,6 @@ class Maze:
             :return numpy.tensor transition probabilities: tensor of transition
             probabilities of dimension S*S*A
         """
-        print(self.n_states)
-        # HOW MANY DIMENSIONS? SHOULD WE ADD ONE FOR THE CURRENT S_MINOTAUR?
         # Initialize the transition probailities tensor (S_next,S,next_S_minotaur, S_minotaur,A)
         dimensions = (self.n_states, self.n_states, self.n_states, self.n_states, self.n_actions); # add minotaur dimension (n_states)
         transition_probabilities = np.zeros(dimensions);
@@ -156,22 +155,16 @@ class Maze:
         # Compute the transition probabilities.
         for s in range(self.n_states):
             for s_minotaur in range(self.n_states):
-                next_states_minotaur = self.__possible_moves_minotaur(s_minotaur) #CALL FUNCTION RETURNING future positions of min
-                for a in range(self.n_actions):
-                    next_s = self.__move(s,a);
-                    # check current states of player and minotaur. If current state is the same --> cannot move = action0
-                    for next_s_minotaur in next_states_minotaur:
-                        if s == s_minotaur and a == 0:
-                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 1
-                        elif s == s_minotaur and a != 0:
-                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
-                        # TODO: CHANGE THIS INTO NOT HARDCODED
-                        elif s == 37 and a == 0:
-                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
-                        elif s == 37 and a != 0:
-                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 0
-                        else:
-                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 1/len(next_states_minotaur)
+                if s == s_minotaur or self.maze[self.states[s]] == 2:
+                    transition_probabilities[s, s, s_minotaur, s_minotaur, :] = 1
+                else:
+                    next_states_minotaur = self.__possible_moves_minotaur(s_minotaur) #CALL FUNCTION RETURNING future positions of min
+                    for a in range(self.n_actions):
+                        next_s = self.__move(s,s_minotaur,a);
+                        # check current states of player and minotaur. If current state is the same --> cannot move = action0
+                        for next_pos_minotaur in next_states_minotaur:
+                            next_s_minotaur = self.map_minotaur[next_pos_minotaur]
+                            transition_probabilities[next_s, s, next_s_minotaur, s_minotaur, a] = 1/(len(next_states_minotaur))
         return transition_probabilities;
 
     def __rewards(self, weights=None, random_rewards=None):
@@ -180,36 +173,27 @@ class Maze:
         # If the rewards are not described by a weight matrix
         if weights is None:
             for s in range(self.n_states):
-                for a in range(self.n_actions):
-                    next_s = self.__move(s,a);
-                    for s_minotaur in range(self.n_states):
-                        # Rewrd for hitting a wall
-                        #if s == next_s and a != self.STAY:
-                        #    rewards[s,a] = self.IMPOSSIBLE_REWARD;
-                        # Reward for reaching the exit
-                        if s != next_s and self.maze[self.states[next_s]] == 2:
-                            rewards[s,s_minotaur,a] = self.GOAL_REWARD;
-                        # Reward for taking a step to an empty cell that is not the exit
-                        else:
-                            rewards[s,s_minotaur,a] = self.STEP_REWARD;
-
-        ## If the weights are descrobed by a weight matrix
-        #else:
-        #    for s in range(self.n_states):
-        #         for a in range(self.n_actions):
-        #             next_s = self.__move(s,a);
-        #             i,j = self.states[next_s];
-        #             # Simply put the reward as the weights o the next state.
-        #             rewards[s,a] = weights[i][j];
-
+                for s_minotaur in range(self.n_states):
+                    if s == s_minotaur:
+                        rewards[s, s_minotaur, :] = 0
+                    else:
+                        for a in range(self.n_actions):
+                            next_s = self.__move(s,s_minotaur,a);
+                            # Reward for reaching the exit
+                            if s != next_s and self.maze[self.states[next_s]] == 2:
+                                rewards[s,s_minotaur,a] = self.GOAL_REWARD;
+                            # Reward for taking a step to an empty cell that is not the exit
+                            else:
+                                rewards[s,s_minotaur,a] = self.STEP_REWARD;
         return rewards;
 
-    def simulate(self, start, policy, method, start_minotaur=(6, 5)):
+    def simulate(self, start, policy, method, life_mean=30, start_minotaur=(6, 5)):
         if method not in methods:
             error = 'ERROR: the argument method must be in {}'.format(methods);
             raise NameError(error);
 
         path = list();
+        exited_maze = False
         if method == 'DynProg':
             # Deduce the horizon from the policy shape
             horizon = policy.shape[2]#-1;
@@ -222,7 +206,7 @@ class Maze:
             while t < horizon-1:
                 print("t: ", t)
                 # Move to next state given the policy and the current state
-                next_s = self.__move(s,policy[s,s_minotaur,t]);
+                next_s = self.__move(s,s_minotaur,policy[s,s_minotaur,t]);
                 next_s_minotaur = self.__move_minotaur(s_minotaur)
                 # Add the position in the maze corresponding to the next state
                 # to the path
@@ -234,26 +218,36 @@ class Maze:
         if method == 'ValIter':
             # Initialize current state, next state and time
             t = 1;
+            p = 1 / life_mean
+            T = np.random.geometric(p)
             s = self.map[start];
+            s_minotaur = self.map[start_minotaur]
             # Add the starting position in the maze to the path
             path.append(start);
             # Move to next state given the policy and the current state
-            next_s = self.__move(s,policy[s]);
+            #TODO: Add s_minotaur
+            next_s = self.__move(s,s_minotaur,policy[s,s_minotaur]);
+            next_s_minotaur = self.__move_minotaur(s_minotaur)
             # Add the position in the maze corresponding to the next state
             # to the path
             path.append(self.states[next_s]);
             # Loop while state is not the goal state
-            while s != next_s:
+            while not exited_maze and t < T:
                 # Update state
                 s = next_s;
+                s_minotaur = next_s_minotaur
                 # Move to next state given the policy and the current state
-                next_s = self.__move(s,policy[s]);
+                #TODO: Add s_minotaur
+                next_s = self.__move(s,s_minotaur,policy[s,s_minotaur]);
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
                 # Update time and state for next iteration
                 t +=1;
-        return path
+
+                if self.maze[self.states[next_s]] == 2:
+                    exited_maze = True
+        return path, exited_maze, t
 
 
     def show(self):
@@ -288,7 +282,6 @@ def dynamic_programming(env, horizon):
     n_states  = env.n_states;
     n_actions = env.n_actions;
     T         = horizon;
-    print("rewards shape: ", r.shape)
     # The variables involved in the dynamic programming backwards recursions
     # added a dimension for the value function and policy for the position of the minotaur
     V      = np.zeros((n_states, n_states, T+1));
@@ -303,23 +296,12 @@ def dynamic_programming(env, horizon):
 
     # The dynamic programming bakwards recursion
     for t in range(T-1,-1,-1):
-        print(t)
         # Update the value function acccording to the bellman equation
         for s in range(n_states):
             for a in range(n_actions):
-                # add for loop for minotaur and add s_minotaur to all function parts
                 for s_minotaur in range(n_states):
                     Q[s,s_minotaur,a] = r[s,s_minotaur,a] + np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T)
-                    if r[s,s_minotaur,a] != 0 and np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T) != 0:
-                        print("non-zero reward: ", r[s,s_minotaur,a])
-                        print("np dot if non-zero reward: ", np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T), "s: ", s)
-                    #print("np.dot thingy: ", np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:,t+1].flatten().T))
-                    #print("Q in this state: ", Q[s,s_minotaur,a])
-        print("Q with correct starting positions: ", Q[0, 37, :])
-                # Update of the temporary Q values
-                #Q[s,a] = r[s,a] + np.dot(p[:,s,:,:,a],V[:,t+1])
         # Update by taking the maximum Q value w.r.t the action a
-
         V[:,:,t] = np.max(Q,2);
         # The optimal action is the one that maximizes the Q function
         policy[:,:,t] = np.argmax(Q,2);
@@ -348,9 +330,9 @@ def value_iteration(env, gamma, epsilon):
     n_actions = env.n_actions;
 
     # Required variables and temporary ones for the VI to run
-    V   = np.zeros(n_states);
-    Q   = np.zeros((n_states, n_actions));
-    BV  = np.zeros(n_states);
+    V   = np.zeros((n_states, n_states));
+    Q   = np.zeros((n_states, n_states, n_actions));
+    BV  = np.zeros((n_states, n_states));
     # Iteration counter
     n   = 0;
     # Tolerance error
@@ -358,9 +340,10 @@ def value_iteration(env, gamma, epsilon):
 
     # Initialization of the VI
     for s in range(n_states):
-        for a in range(n_actions):
-            Q[s, a] = r[s, a] + gamma*np.dot(p[:,s,a],V);
-    BV = np.max(Q, 1);
+        for s_minotaur in range(n_states):
+            for a in range(n_actions):
+                Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:].flatten().T);
+    BV = np.max(Q, 2);
 
     # Iterate until convergence
     while np.linalg.norm(V - BV) >= tol and n < 200:
@@ -370,14 +353,15 @@ def value_iteration(env, gamma, epsilon):
         V = np.copy(BV);
         # Compute the new BV
         for s in range(n_states):
-            for a in range(n_actions):
-                Q[s, a] = r[s, a] + gamma*np.dot(p[:,s,a],V);
-        BV = np.max(Q, 1);
+            for s_minotaur in range(n_states):
+                for a in range(n_actions):
+                    Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:].flatten().T);
+        BV = np.max(Q, 2);
         # Show error
         #print(np.linalg.norm(V - BV))
 
     # Compute policy
-    policy = np.argmax(Q,1);
+    policy = np.argmax(Q,2);
     # Return the obtained policy
     return V, policy;
 
