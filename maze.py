@@ -40,12 +40,13 @@ class Maze:
     #EATEN_REWARD = -100
 
 
-    def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False, cross_minotaur=True):
+    def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False, cross_minotaur=True, jumping_allowed=True):
         """ Constructor of the environment Maze.
         """
         self.maze                     = maze;
         self.actions                  = self.__actions();
         self.cross_minotaur           = cross_minotaur
+        self.jumping_allowed          = jumping_allowed
         self.actions_minotaur         = self.__actions_minotaur(stay=minotaur_stay);
         self.states, self.map, self.states_minotaur, self.map_minotaur = self.__states();
         self.n_actions                = len(self.actions);
@@ -122,13 +123,15 @@ class Maze:
             col += action[1];
             if ((row != -1) and (row != self.maze.shape[0]) and (col != -1) and (col != self.maze.shape[1])):
                 if (self.maze[row,col] == 1):
-                    pass
-                    #if action[0]!=0: 
-                    #    row += action[0]; #vertical jump
-                    #elif action[1]!=0: 
-                    #    col += action[1]; #horizontal jump
-                    #if (self.maze[row,col] != 1): 
-                    #    possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
+                    if self.jumping_allowed == True:
+                        if action[0]!=0: 
+                            row += action[0]; #vertical jump
+                        elif action[1]!=0: 
+                            col += action[1]; #horizontal jump
+                        if (self.maze[row,col] != 1): 
+                            possible_actions.append((row, col)) #save this action if the jump doe snot end in a wall
+                    else:
+                        pass
                 else:
                     possible_actions.append((row, col)) # TO DO: RENAME TO NEXT POSITIONS
 
@@ -236,9 +239,11 @@ class Maze:
                 # Update state
                 s = next_s;
                 s_minotaur = next_s_minotaur
+                print(s, s_minotaur)
                 # Move to next state given the policy and the current state
                 #TODO: Add s_minotaur
                 next_s = self.__move(s,s_minotaur,policy[s,s_minotaur]);
+                next_s_minotaur = self.__move_minotaur(s_minotaur)
                 # Add the position in the maze corresponding to the next state
                 # to the path
                 path.append(self.states[next_s])
@@ -338,11 +343,11 @@ def value_iteration(env, gamma, epsilon):
     # Tolerance error
     tol = (1 - gamma)* epsilon/gamma;
 
-    # Initialization of the VI
+    # Initialization of the VI/
     for s in range(n_states):
         for s_minotaur in range(n_states):
             for a in range(n_actions):
-                Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:].flatten().T);
+                Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V.flatten().T);
     BV = np.max(Q, 2);
 
     # Iterate until convergence
@@ -355,7 +360,7 @@ def value_iteration(env, gamma, epsilon):
         for s in range(n_states):
             for s_minotaur in range(n_states):
                 for a in range(n_actions):
-                    Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V[:,:].flatten().T);
+                    Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V.flatten().T);
         BV = np.max(Q, 2);
         # Show error
         #print(np.linalg.norm(V - BV))
