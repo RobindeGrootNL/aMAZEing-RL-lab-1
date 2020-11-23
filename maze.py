@@ -239,9 +239,7 @@ class Maze:
                 # Update state
                 s = next_s;
                 s_minotaur = next_s_minotaur
-                print(s, s_minotaur)
                 # Move to next state given the policy and the current state
-                #TODO: Add s_minotaur
                 next_s = self.__move(s,s_minotaur,policy[s,s_minotaur]);
                 next_s_minotaur = self.__move_minotaur(s_minotaur)
                 # Add the position in the maze corresponding to the next state
