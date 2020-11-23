@@ -1,3 +1,4 @@
+import imageio
 import numpy as np
 import matplotlib.pyplot as plt
 import random
@@ -409,7 +410,7 @@ def draw_maze(maze):
         cell.set_height(1.0/rows);
         cell.set_width(1.0/cols);
 
-def animate_solution(maze, path, path_minotaur, end_state=(6,5)):
+def animate_solution(maze, path, path_minotaur, gif_name, end_state=(6,5)):
 
     # Map a color to each cell in the maze
     col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
@@ -445,7 +446,7 @@ def animate_solution(maze, path, path_minotaur, end_state=(6,5)):
         cell.set_height(1.0/rows);
         cell.set_width(1.0/cols);
 
-
+    figure_list = list()
     # Update the color at each frame
     for i in range(len(path)):
         grid.get_celld()[(path[i])].set_facecolor(LIGHT_ORANGE)
@@ -472,4 +473,13 @@ def animate_solution(maze, path, path_minotaur, end_state=(6,5)):
 
         display.display(fig)
         display.clear_output(wait=True)
-        time.sleep(1)
+        # Used to return the plot as an image array
+        fig.canvas.draw()       # draw the canvas, cache the renderer
+        image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
+        image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))        
+
+
+        figure_list.append(image)
+        time.sleep(0.1)
+
+    imageio.mimsave(gif_name, figure_list, fps=2)
