@@ -483,3 +483,131 @@ def animate_solution(maze, path, path_minotaur, gif_name, end_state=(6,5)):
         time.sleep(0.1)
 
     imageio.mimsave(gif_name, figure_list, fps=2)
+
+if __name__ == '__main__':
+    # Description of the maze as a numpy array
+    maze = np.array([
+        [0, 0, 1, 0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 0, 1, 0, 0, 1, 1, 1],
+        [0, 0, 1, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 1, 1, 1, 1, 1, 0],
+        [0, 0, 0, 0, 1, 2, 0, 0]
+    ])
+    # with the convention 
+    # 0 = empty cell
+    # 1 = obstacle
+    # 2 = exit of the Maze
+
+    #--------------------------------------------------------------------------------------------------------------------
+    # DYNAMIC PROGRAMMING
+    #--------------------------------------------------------------------------------------------------------------------
+
+    # MINOTAUR IS NOT ALLOWED TO STAY
+    env = Maze(maze, minotaur_stay=False, cross_minotaur=True, jumping_allowed=True)
+
+    horizon = 20
+    V, policy= dynamic_programming(env,horizon);
+
+    method = 'DynProg';
+    start  = (0,0);
+    path, path_minotaur, _, _ = env.simulate(start, policy, method,start_minotaur=(6, 5));
+    animate_solution(maze, path, path_minotaur, gif_name="DP_nostay.gif")
+    plt.clf()
+
+    max_probs = []
+    start_player = env.map[(0,0)]
+    start_minotaur = env.map[(6,5)]
+    for T in range(0,31):
+        horizon = T    
+        V, policy = dynamic_programming(env,horizon)
+        max_probs.append(V[start_player, start_minotaur, 0]) 
+
+    plt.scatter(x=range(0,len(max_probs)), y=max_probs)
+    plt.grid(True)
+    plt.suptitle("Max P(Escape) as a function of the time horizon", fontsize=16)
+    plt.title("Minotaur cannot stay", fontsize=12)
+    plt.xlabel("Time horizon")
+    plt.ylabel("Max P(Escape)")
+    plt.savefig("DP_nostay.png")
+    plt.clf()
+    # MINOTAUR IS ALLOWED TO STAY
+    env = Maze(maze, minotaur_stay=True, cross_minotaur=True, jumping_allowed=True)
+
+    horizon = 20
+    V, policy= dynamic_programming(env,horizon);
+
+    method = 'DynProg';
+    start  = (0,0);
+    path, path_minotaur, _, _ = env.simulate(start, policy, method,start_minotaur=(6, 5));
+    animate_solution(maze, path, path_minotaur, gif_name="DP_stay.gif")
+    plt.clf()
+
+    max_probs_stay = []
+    start_player = env.map[(0,0)]
+    start_minotaur = env.map[(6,5)]
+    for T in range(0,31):
+        horizon = T    
+        V, policy = dynamic_programming(env,horizon)
+        max_probs_stay.append(V[start_player, start_minotaur, 0])
+
+    plt.scatter(x=range(0,len(max_probs_stay)), y=max_probs_stay)
+    plt.grid(True)
+    plt.suptitle("Max P(Escape) as a function of the time horizon", fontsize=16)
+    plt.title("Minotaur can stay", fontsize=12)
+    plt.xlabel("Time horizon")
+    plt.ylabel("Max P(Escape)")
+    plt.savefig("DP_stay.png")
+    plt.clf()
+    #--------------------------------------------------------------------------------------------------------------------
+    # VALUE ITERATION
+    #--------------------------------------------------------------------------------------------------------------------
+
+    # MINOTAUR IS NOT ALLOWED TO STAY
+    env = Maze(maze, minotaur_stay=False, cross_minotaur=True, jumping_allowed=True)
+    
+    # Discount Factor 
+    gamma   = 1-1/30;
+    # Accuracy treshold 
+    epsilon = 0.001;
+    V, policy = value_iteration(env, gamma, epsilon)
+    
+    method = 'ValIter';
+    start  = (0,0);
+    
+    exited_maze_list = list()
+    
+    n_iters = 10000
+    for i in range(n_iters):
+        path, path_minotaur, exited_maze, t = env.simulate(start, policy, method, life_mean=30, start_minotaur=(6,5))
+        exited_maze_list.append(exited_maze)
+    
+    probability_of_exit = sum(exited_maze_list)/n_iters
+    print("Probability of exiting the maze: ", probability_of_exit)
+    animate_solution(maze, path, path_minotaur, gif_name="VI_nostay.gif")
+    plt.clf()
+
+    # MINOTAUR IS NOT ALLOWED TO STAY
+    env = Maze(maze, minotaur_stay=True, cross_minotaur=True, jumping_allowed=True)
+    
+    # Discount Factor 
+    gamma   = 1-1/30;
+    # Accuracy treshold 
+    epsilon = 0.001;
+    V, policy = value_iteration(env, gamma, epsilon)
+    
+    method = 'ValIter';
+    start  = (0,0);
+    
+    exited_maze_stay_list = list()
+    
+    n_iters = 10000
+    for i in range(n_iters):
+        path, path_minotaur, exited_maze, t = env.simulate(start, policy, method, life_mean=30, start_minotaur=(6,5))
+        exited_maze_stay_list.append(exited_maze)
+    
+    probability_of_exit_stay = sum(exited_maze_stay_list)/n_iters
+    print("Probability of exiting the maze: ", probability_of_exit_stay)
+    animate_solution(maze, path, path_minotaur, gif_name="VI_stay.gif")
+    plt.clf()

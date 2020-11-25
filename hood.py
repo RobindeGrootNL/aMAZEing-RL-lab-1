@@ -353,27 +353,27 @@ def value_iteration(env, gamma, epsilon):
     # Return the obtained policy
     return V, policy;
 
-def draw_hood(maze):
+def draw_hood(hood):
 
     # Map a color to each cell in the maze
     col_map = {0: WHITE, 1: LIGHT_GREY, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
 
     # Give a color to each cell
-    rows,cols    = maze.shape;
-    colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)];
+    rows,cols    = hood.shape;
+    colored_maze = [[col_map[hood[j,i]] for i in range(cols)] for j in range(rows)];
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols,rows));
 
     # Remove the axis ticks and add title title
     ax = plt.gca();
-    ax.set_title('The Maze');
+    ax.set_title('The Hood');
     ax.set_xticks([]);
     ax.set_yticks([]);
 
     # Give a color to each cell
-    rows,cols    = maze.shape;
-    colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)];
+    rows,cols    = hood.shape;
+    colored_maze = [[col_map[hood[j,i]] for i in range(cols)] for j in range(rows)];
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols,rows))
@@ -393,7 +393,7 @@ def draw_hood(maze):
 def animate_solution(maze, path, path_police, gif_name, end_state=(6,5)):
 
     # Map a color to each cell in the maze
-    col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
+    col_map = {0: WHITE, 1: LIGHT_GREY, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
 
     # Size of the maze
     rows,cols = maze.shape;
@@ -463,3 +463,48 @@ def animate_solution(maze, path, path_police, gif_name, end_state=(6,5)):
         time.sleep(0.1)
 
     imageio.mimsave(gif_name, figure_list, fps=2)
+
+
+if __name__ == '__main__':
+    # Description of the hood as a numpy array
+    hood = np.array([
+        [1, 0, 0, 0, 0, 1],
+        [0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 1],
+    ])
+    # with the convention 
+    # 0 = empty cell
+    # 1 = obstacle
+
+    #--------------------------------------------------------------------------------------------------------------------
+    # VALUE ITERATION
+    #--------------------------------------------------------------------------------------------------------------------
+
+    # MINOTAUR IS NOT ALLOWED TO STAY
+    env = Hood(hood, starting_point=(0,0), starting_point_police=(1,2))
+    
+    # Discount Factor 
+    gamma   = 1-1/30;
+    # Accuracy treshold 
+    epsilon = 0.001;
+    V, policy = value_iteration(env, gamma, epsilon)
+    
+    V_dict = {"Gamma":[], "V":[], "Policy":[]}
+
+    gammas = np.arange(10e-10,1,0.02)
+    for gamma in gammas:
+        V, policy = value_iteration(env, gamma, epsilon)
+        V_dict["Gamma"].append(gamma)
+        V_dict["V"].append(V[0,8])
+        V_dict["Policy"].append(policy)
+
+    plt.plot(V_dict["Gamma"], V_dict["V"])
+    plt.grid(True)
+    plt.suptitle("Value function as a function of lambda", fontsize=16)
+    plt.xlabel("Lambda")
+    plt.ylabel("Value")
+    plt.savefig("VI_robbing.png")
+    plt.clf()
+    
+    path, path_police, t = env.simulate(start=(0,0), policy=policy, method='ValIter', life_mean=30, start_police=(1,2))
+    animate_solution(hood, path, path_police, gif_name="Police.gif")
