@@ -1,3 +1,6 @@
+# Núria Casals 950801-T740
+# Robin de Groot 981116-T091
+
 import imageio
 import numpy as np
 import matplotlib.pyplot as plt
@@ -165,17 +168,9 @@ class Hood:
                     rewards[s, s_police, :] = self.BANK_REWARD
                 else:
                     rewards[s, s_police, :] = self.STEP_REWARD
-                    #for a in range(self.n_actions):
-                    #    next_s = self.__move(s,s_minotaur,a);
-                    #    # Reward for reaching the exit
-                    #    if s != next_s and self.hood[self.states[next_s]] == 2:
-                    #        rewards[s,s_minotaur,a] = self.GOAL_REWARD;
-                    #    # Reward for taking a step to an empty cell that is not the exit
-                    #    else:
-                    #        rewards[s,s_minotaur,a] = self.STEP_REWARD;
         return rewards;
 
-    def simulate(self, start, policy, method, life_mean=30, start_police=(6, 5)):
+    def simulate(self, start, policy, method, gamma=0.5, start_police=(6, 5)):
         if method not in methods:
             error = 'ERROR: the argument method must be in {}'.format(methods);
             raise NameError(error);
@@ -207,8 +202,7 @@ class Hood:
         if method == 'ValIter':
             # Initialize current state, next state and time
             t = 1;
-            p = 1 / life_mean
-            T = np.random.geometric(p)
+            T = np.random.geometric(1-gamma)
             s = self.map[start];
             s_police = self.map[start_police]
             # Add the starting position in the maze to the path
@@ -274,8 +268,6 @@ def dynamic_programming(env, horizon):
     # added a dimension for the value function and policy for the position of the minotaur
     V      = np.zeros((n_states, n_states, T+1));
     policy = np.zeros((n_states, n_states, T+1));
-    #Q      = np.zeros((n_states, n_actions));
-
 
     # Initialization
     Q               = np.copy(r);
@@ -345,8 +337,6 @@ def value_iteration(env, gamma, epsilon):
                 for a in range(n_actions):
                     Q[s, s_police, a] = r[s, s_police, a] + gamma*np.dot(p[:,s,:,s_police,a].flatten(),V.flatten().T);
         BV = np.max(Q, 2);
-        # Show error
-        #print(np.linalg.norm(V - BV))
 
     # Compute policy
     policy = np.argmax(Q,2);
@@ -458,7 +448,6 @@ def animate_solution(maze, path, path_police, gif_name, end_state=(6,5)):
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
         image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))        
 
-
         figure_list.append(image)
         time.sleep(0.1)
 
@@ -474,7 +463,7 @@ if __name__ == '__main__':
     ])
     # with the convention 
     # 0 = empty cell
-    # 1 = obstacle
+    # 1 = Bank
 
     #--------------------------------------------------------------------------------------------------------------------
     # VALUE ITERATION
@@ -506,5 +495,9 @@ if __name__ == '__main__':
     plt.savefig("VI_robbing.png")
     plt.clf()
     
-    path, path_police, t = env.simulate(start=(0,0), policy=policy, method='ValIter', life_mean=30, start_police=(1,2))
-    animate_solution(hood, path, path_police, gif_name="Police.gif")
+    gamma_test = [0.25, 0.75, 0.9, 0.98]
+
+    for gamma in gamma_test:
+        path, path_police, t = env.simulate(start=(0,0), policy=policy, method='ValIter', gamma=gamma, start_police=(1,2))
+        animate_solution(hood, path, path_police, gif_name="Police_gamma_{}.gif".format(gamma))
+        plt.clf()

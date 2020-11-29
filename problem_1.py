@@ -1,3 +1,6 @@
+# Núria Casals 950801-T740
+# Robin de Groot 981116-T091
+
 import imageio
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,9 +40,6 @@ class Maze:
     # Reward values
     STEP_REWARD = 0
     GOAL_REWARD = 1
-    #IMPOSSIBLE_REWARD = -100
-    #EATEN_REWARD = -100
-
 
     def __init__(self, maze, weights=None, random_rewards=False, minotaur_stay=False, cross_minotaur=True, jumping_allowed=True):
         """ Constructor of the environment Maze.
@@ -134,10 +134,8 @@ class Maze:
                     else:
                         pass
                 else:
-                    possible_actions.append((row, col)) # TO DO: RENAME TO NEXT POSITIONS
+                    possible_actions.append((row, col))
 
-        #n = len(possible_actions)
-        #chosen_action = possible_actions[random.randint(0, n)]
         return possible_actions #self.map_minotaur[chosen_action]
 
     def __move_minotaur(self,state):
@@ -294,8 +292,6 @@ def dynamic_programming(env, horizon):
     # added a dimension for the value function and policy for the position of the minotaur
     V      = np.zeros((n_states, n_states, T+1));
     policy = np.zeros((n_states, n_states, T+1));
-    #Q      = np.zeros((n_states, n_actions));
-
 
     # Initialization
     Q               = np.copy(r);
@@ -365,8 +361,6 @@ def value_iteration(env, gamma, epsilon):
                 for a in range(n_actions):
                     Q[s, s_minotaur, a] = r[s, s_minotaur, a] + gamma*np.dot(p[:,s,:,s_minotaur,a].flatten(),V.flatten().T);
         BV = np.max(Q, 2);
-        # Show error
-        #print(np.linalg.norm(V - BV))
 
     # Compute policy
     policy = np.argmax(Q,2);
